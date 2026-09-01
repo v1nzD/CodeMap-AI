@@ -3,6 +3,7 @@ import healthRouter from "./routes/health.routes";
 import cors from "cors";
 import "dotenv/config";
 import pool from "./database/connection";
+import repoRouter from "./routes/repositories.routes";
 
 const app = express();
 app.use(
@@ -13,6 +14,7 @@ app.use(
 app.use(express.json());
 
 app.use("/api", healthRouter);
+app.use("/api/repositories", repoRouter);
 
 const PORT = process.env.PORT || 5000;
 
