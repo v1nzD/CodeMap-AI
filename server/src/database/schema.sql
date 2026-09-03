@@ -1,0 +1,8 @@
+CREATE TABLE repositories (
+    id SERIAL PRIMARY KEY,
+    github_owner VARCHAR(255) NOT NULL,
+    github_name VARCHAR(255) NOT NULL,
+    github_url TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
