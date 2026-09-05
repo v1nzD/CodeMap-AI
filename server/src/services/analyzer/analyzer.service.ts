@@ -1,4 +1,8 @@
 import ts from "typescript";
+import path from "path";
+import { resolveImport } from "./import.resolver";
+
+const extensions = [".ts", ".tsx", ".js", ".jsx"];
 
 export interface AnalyzedFile {
   path: string;
@@ -60,5 +64,37 @@ export function analyzeFile(
     imports,
     functions,
     exports,
+  };
+}
+
+export async function analyzeRepository(
+  files: { path: string; content: string; type: string }[],
+) {
+  // Only analyze actual files with supported source extensions
+  const sourceFiles = files.filter(
+    (file) =>
+      file.type === "blob" && extensions.includes(path.extname(file.path)),
+  );
+
+  // Get all source file paths for resolveImport()
+  const filePaths = sourceFiles.map((file) => file.path);
+
+  const analyzedFiles = sourceFiles.map((file) => {
+    // Analyze the contents of this file
+    const analysis = analyzeFile(file.content, file.path);
+
+    // Resolve each import to an actual file
+    const dependencies = analysis.imports
+      .map((importPath) => resolveImport(file.path, importPath, filePaths))
+      .filter((dependency): dependency is string => dependency !== null);
+
+    return {
+      ...analysis,
+      dependencies,
+    };
+  });
+
+  return {
+    files: analyzedFiles,
   };
 }
