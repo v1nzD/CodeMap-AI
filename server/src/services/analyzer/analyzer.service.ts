@@ -53,6 +53,36 @@ export function analyzeFile(
       }
     }
 
+    // arrow functions
+    if (ts.isVariableStatement(node)) {
+      for (const declaration of node.declarationList.declarations) {
+        if (
+          declaration.initializer &&
+          ts.isArrowFunction(declaration.initializer) &&
+          ts.isIdentifier(declaration.name)
+        ) {
+          const functionName = declaration.name.text;
+
+          functions.push(functionName);
+
+          const isExported = node.modifiers?.some(
+            (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword,
+          );
+
+          if (isExported) {
+            exports.push(functionName);
+          }
+        }
+      }
+    }
+
+    // default exports
+    if (ts.isExportAssignment(node)) {
+      if (ts.isIdentifier(node.expression)) {
+        exports.push(node.expression.text);
+      }
+    }
+
     // visit every children node starting from the root (sourceFile)
     ts.forEachChild(node, visit);
   }
