@@ -22,6 +22,11 @@ export function resolveImport(
     path.posix.join(currentDirectory, importPath),
   );
 
+  // If import already has an extension, check it directly
+  if (extensions.includes(path.posix.extname(basePath))) {
+    return repositoryFiles.includes(basePath) ? basePath : null;
+  }
+
   // tries every extension
   // returns file if found
   for (const extension of extensions) {
