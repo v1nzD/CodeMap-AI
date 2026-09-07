@@ -15,3 +15,23 @@ CREATE TABLE files (
 
     UNIQUE(repository_id, path)
 );
+
+CREATE TABLE nodes (
+    id SERIAL PRIMARY KEY,
+    file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+    node_type VARCHAR(50) NOT NULL,
+    name TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(file_id)
+);
+
+CREATE TABLE relationships (
+    id SERIAL PRIMARY KEY,
+    source_node_id INTEGER NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+    target_node_id INTEGER NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+    relationship_type VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(source_node_id, target_node_id, relationship_type)
+);
