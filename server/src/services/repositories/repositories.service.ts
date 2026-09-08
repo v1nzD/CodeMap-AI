@@ -38,3 +38,17 @@ export async function deleteRepository(id: number) {
 
   return result.rows[0];
 }
+
+export async function getRepositoryByGithub(owner: string, name: string) {
+  const result = await pool.query(
+    `
+    SELECT *
+    FROM repositories
+    WHERE github_owner = $1
+      AND github_name = $2
+    `,
+    [owner, name],
+  );
+
+  return result.rows[0];
+}
