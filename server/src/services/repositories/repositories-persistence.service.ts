@@ -24,17 +24,20 @@ export async function saveAnalyzedRepository(
       repositoryId,
     ]);
 
-    const nodeMap = new Map<string, number>();
+    // maps to prevent repeated SQL queries
+    const fileNodeMap = new Map<string, number>();
 
-    // save files and nodes
+    const functionNodeMap = new Map<string, number>();
+
+    // --------------------------------------------------
+    // Create files and nodes
+    // --------------------------------------------------
     for (const file of analysis.files) {
       // save file
       const fileResult = await client.query(
         `
       INSERT INTO files (repository_id, path)
       VALUES ($1, $2)
-      ON CONFLICT (repository_id, path)
-      DO UPDATE SET path = EXCLUDED.path
       RETURNING id
       `,
         [repositoryId, file.path],
@@ -47,78 +50,133 @@ export async function saveAnalyzedRepository(
         `
         INSERT INTO nodes (file_id, node_type, name)
         VALUES ($1, $2, $3)
-        ON CONFLICT (file_id)
-        DO UPDATE SET name = EXCLUDED.name
         RETURNING id`,
         [fileId, "file", file.path.split("/").pop() ?? file.path],
       );
 
-      const nodeId = fileNodeResult.rows[0].id;
+      const fileNodeId = fileNodeResult.rows[0].id;
 
       // store file and nodeId in node map
-      nodeMap.set(file.path, nodeId);
+      fileNodeMap.set(file.path, fileNodeId);
 
-      // const fileNodeId = fileNodeResult.rows[0].id;
+      // create function nodes
+      for (const functionName of file.functions) {
+        const functionNodeResult = await client.query(
+          `
+              INSERT INTO nodes(file_id, node_type, name)
+              VALUES($1, $2, $3)
+              RETURNING id
+              `,
+          [fileId, "function", functionName],
+        );
 
-      // // create function nodes
-      // for (const functionName of file.functions) {
-      //   const functionResult = await client.query(
-      //     `
-      //         INSERT INTO nodes(file_id, node_type, name)
-      //         VALUES($1, $2, $3)
-      //         RETURNING id
-      //         `,
-      //     [fileId, "function", functionName],
-      //   );
+        const functionNodeId = functionNodeResult.rows[0].id;
 
-      //   const functionNodeId = functionResult.rows[0].id;
-
-      //   // connect file -> function
-      //   await client.query(
-      //     `
-      //     INSERT INTO relationships (source_node_id, target_node_id, relationship_type)
-      //     VALUES ($1, $2, $3)
-      //     ON CONFLICT (source_node_id, target_node_id, relationship_type)
-      //     DO NOTHING
-      //     `,
-      //     [fileNodeId, functionNodeId, "contains"],
-      //   );
-      // }
+        functionNodeMap.set(`${file.path}:${functionName}`, functionNodeId);
+      }
     }
 
-    // save import relationships
+    // --------------------------------------------------
+    // Create relationships
+    // --------------------------------------------------
     for (const file of analysis.files) {
-      const sourceNodeId = nodeMap.get(file.path);
+      const fileNodeId = fileNodeMap.get(file.path);
 
-      if (!sourceNodeId) {
+      if (!fileNodeId) {
         continue;
       }
 
-      // process each dependency
+      // -----------------------------------------------
+      // File → Function
+      // contains
+      // -----------------------------------------------
+      for (const functionName of file.functions) {
+        const functionNodeId = functionNodeMap.get(
+          `${file.path}:${functionName}`,
+        );
+
+        if (!functionNodeId) {
+          continue;
+        }
+
+        await client.query(
+          `
+          INSERT INTO relationships (
+            source_node_id,
+            target_node_id,
+            relationship_type
+          )
+          VALUES ($1, $2, $3)
+          ON CONFLICT (
+            source_node_id,
+            target_node_id,
+            relationship_type
+          )
+          DO NOTHING
+          `,
+          [fileNodeId, functionNodeId, "contains"],
+        );
+      }
+
+      // -----------------------------------------------
+      // File → Function
+      // exports
+      // -----------------------------------------------
+      for (const exportedFunction of file.exports) {
+        const functionNodeId = functionNodeMap.get(
+          `${file.path}:${exportedFunction}`,
+        );
+
+        if (!functionNodeId) {
+          continue;
+        }
+
+        await client.query(
+          `
+          INSERT INTO relationships (
+            source_node_id,
+            target_node_id,
+            relationship_type
+          )
+          VALUES ($1, $2, $3)
+          ON CONFLICT (
+            source_node_id,
+            target_node_id,
+            relationship_type
+          )
+          DO NOTHING
+          `,
+          [fileNodeId, functionNodeId, "exports"],
+        );
+      }
+
+      // -----------------------------------------------
+      // File → File
+      // imports
+      // -----------------------------------------------
       for (const dependency of file.dependencies) {
-        const targetNodeId = nodeMap.get(dependency);
+        const targetNodeId = fileNodeMap.get(dependency);
 
         if (!targetNodeId) {
           continue;
         }
 
-        // create import relationship
         await client.query(
           `
-      INSERT INTO relationships (
-        source_node_id,
-        target_node_id,
-        relationship_type
-      )
-      VALUES ($1, $2, $3)
-      ON CONFLICT (
-        source_node_id,
-        target_node_id,
-        relationship_type
-      )
-      DO NOTHING
-      `,
-          [sourceNodeId, targetNodeId, "imports"],
+          INSERT INTO relationships (
+            source_node_id,
+            target_node_id,
+            relationship_type
+          )
+          VALUES ($1, $2, $3)
+          ON CONFLICT (
+            source_node_id,
+            target_node_id,
+            relationship_type
+          )
+          DO NOTHING
+          `,
+          [fileNodeId, targetNodeId, "imports"],
         );
       }
     }

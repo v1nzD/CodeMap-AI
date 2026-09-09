@@ -22,8 +22,6 @@ CREATE TABLE nodes (
     node_type VARCHAR(50) NOT NULL,
     name TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-
-    UNIQUE(file_id)
 );
 
 CREATE TABLE relationships (
