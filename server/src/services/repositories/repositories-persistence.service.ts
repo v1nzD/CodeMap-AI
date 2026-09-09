@@ -24,6 +24,8 @@ export async function saveAnalyzedRepository(
       repositoryId,
     ]);
 
+    const nodeMap = new Map<string, number>();
+
     // save files and nodes
     for (const file of analysis.files) {
       // save file
@@ -50,6 +52,11 @@ export async function saveAnalyzedRepository(
         RETURNING id`,
         [fileId, "file", file.path.split("/").pop() ?? file.path],
       );
+
+      const nodeId = fileNodeResult.rows[0].id;
+
+      // store file and nodeId in node map
+      nodeMap.set(file.path, nodeId);
 
       // const fileNodeId = fileNodeResult.rows[0].id;
 
@@ -81,19 +88,7 @@ export async function saveAnalyzedRepository(
 
     // save import relationships
     for (const file of analysis.files) {
-      // find source file node
-      const sourceResult = await client.query(
-        `
-    SELECT nodes.id
-    FROM nodes
-    JOIN files ON files.id = nodes.file_id
-    WHERE files.repository_id = $1
-      AND files.path = $2
-    `,
-        [repositoryId, file.path],
-      );
-
-      const sourceNodeId = sourceResult.rows[0]?.id;
+      const sourceNodeId = nodeMap.get(file.path);
 
       if (!sourceNodeId) {
         continue;
@@ -101,19 +96,7 @@ export async function saveAnalyzedRepository(
 
       // process each dependency
       for (const dependency of file.dependencies) {
-        // find target file node
-        const targetResult = await client.query(
-          `
-      SELECT nodes.id
-      FROM nodes
-      JOIN files ON files.id = nodes.file_id
-      WHERE files.repository_id = $1
-        AND files.path = $2
-      `,
-          [repositoryId, dependency],
-        );
-
-        const targetNodeId = targetResult.rows[0]?.id;
+        const targetNodeId = nodeMap.get(dependency);
 
         if (!targetNodeId) {
           continue;
