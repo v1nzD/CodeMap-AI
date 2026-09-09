@@ -12,70 +12,116 @@ export async function saveAnalyzedRepository(
     }[];
   },
 ) {
-  // save files and nodes
-  for (const file of analysis.files) {
-    const fileResult = await pool.query(
-      `
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // for re-analysis
+    // remove the existing graph for this repository
+    // nodes and relationships are removed through ON DELETE CASCADE
+    await client.query(`DELETE FROM files WHERE repository_id = $1`, [
+      repositoryId,
+    ]);
+
+    // save files and nodes
+    for (const file of analysis.files) {
+      // save file
+      const fileResult = await client.query(
+        `
       INSERT INTO files (repository_id, path)
       VALUES ($1, $2)
       ON CONFLICT (repository_id, path)
       DO UPDATE SET path = EXCLUDED.path
       RETURNING id
       `,
-      [repositoryId, file.path],
-    );
+        [repositoryId, file.path],
+      );
 
-    const fileId = fileResult.rows[0].id;
+      const fileId = fileResult.rows[0].id;
 
-    await pool.query(
-      `
+      // create file node
+      const fileNodeResult = await client.query(
+        `
         INSERT INTO nodes (file_id, node_type, name)
         VALUES ($1, $2, $3)
         ON CONFLICT (file_id)
-        DO UPDATE SET name = EXCLUDED.name`,
-      [fileId, "file", file.path.split("/").pop() ?? file.path],
-    );
-  }
+        DO UPDATE SET name = EXCLUDED.name
+        RETURNING id`,
+        [fileId, "file", file.path.split("/").pop() ?? file.path],
+      );
 
-  // save relationships
-  for (const file of analysis.files) {
-    const sourceResult = await pool.query(
-      `
+      // const fileNodeId = fileNodeResult.rows[0].id;
+
+      // // create function nodes
+      // for (const functionName of file.functions) {
+      //   const functionResult = await client.query(
+      //     `
+      //         INSERT INTO nodes(file_id, node_type, name)
+      //         VALUES($1, $2, $3)
+      //         RETURNING id
+      //         `,
+      //     [fileId, "function", functionName],
+      //   );
+
+      //   const functionNodeId = functionResult.rows[0].id;
+
+      //   // connect file -> function
+      //   await client.query(
+      //     `
+      //     INSERT INTO relationships (source_node_id, target_node_id, relationship_type)
+      //     VALUES ($1, $2, $3)
+      //     ON CONFLICT (source_node_id, target_node_id, relationship_type)
+      //     DO NOTHING
+      //     `,
+      //     [fileNodeId, functionNodeId, "contains"],
+      //   );
+      // }
+    }
+
+    // save import relationships
+    for (const file of analysis.files) {
+      // find source file node
+      const sourceResult = await client.query(
+        `
     SELECT nodes.id
     FROM nodes
     JOIN files ON files.id = nodes.file_id
     WHERE files.repository_id = $1
       AND files.path = $2
     `,
-      [repositoryId, file.path],
-    );
+        [repositoryId, file.path],
+      );
 
-    const sourceNodeId = sourceResult.rows[0]?.id;
+      const sourceNodeId = sourceResult.rows[0]?.id;
 
-    if (!sourceNodeId) {
-      continue;
-    }
+      if (!sourceNodeId) {
+        continue;
+      }
 
-    for (const dependency of file.dependencies) {
-      const targetResult = await pool.query(
-        `
+      // process each dependency
+      for (const dependency of file.dependencies) {
+        // find target file node
+        const targetResult = await client.query(
+          `
       SELECT nodes.id
       FROM nodes
       JOIN files ON files.id = nodes.file_id
       WHERE files.repository_id = $1
         AND files.path = $2
       `,
-        [repositoryId, dependency],
-      );
+          [repositoryId, dependency],
+        );
 
-      const targetNodeId = targetResult.rows[0]?.id;
+        const targetNodeId = targetResult.rows[0]?.id;
 
-      if (!targetNodeId) {
-        continue;
-      }
+        if (!targetNodeId) {
+          continue;
+        }
 
-      await pool.query(
-        `
+        // create import relationship
+        await client.query(
+          `
       INSERT INTO relationships (
         source_node_id,
         target_node_id,
@@ -89,8 +135,16 @@ export async function saveAnalyzedRepository(
       )
       DO NOTHING
       `,
-        [sourceNodeId, targetNodeId, "imports"],
-      );
+          [sourceNodeId, targetNodeId, "imports"],
+        );
+      }
     }
+
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
   }
 }
