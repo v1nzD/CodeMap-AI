@@ -77,6 +77,7 @@ export async function getGithubFileTree(
   return response.json();
 }
 
+// gets source code of a file
 export async function getGithubFileContent(
   owner: string,
   name: string,
