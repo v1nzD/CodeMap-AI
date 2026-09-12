@@ -6,6 +6,7 @@ import pool from "./database/connection";
 import repoRouter from "./routes/repositories.routes";
 import { errorHandler } from "./middleware/errorHandler";
 import githubRouter from "./routes/github.routes";
+import graphRouter from "./routes/graph.routes";
 
 const app = express();
 app.use(
@@ -15,9 +16,10 @@ app.use(
 );
 app.use(express.json());
 
-app.use("/api", healthRouter);
+// app.use("/api", healthRouter);
 app.use("/api/repositories", repoRouter);
 app.use("/api/github", githubRouter);
+app.use("/api", graphRouter);
 
 // error handler
 app.use(errorHandler);
