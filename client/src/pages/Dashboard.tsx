@@ -11,35 +11,52 @@ interface DashboardProps {
 export default function Dashboard({ repositoryId }: DashboardProps) {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadGraph() {
-      const graph = await getRepositoryGraph(repositoryId);
+      try {
+        const graph = await getRepositoryGraph(repositoryId);
 
-      const graphNodes: Node[] = graph.nodes.map((node, index) => ({
-        id: String(node.id),
-        position: {
-          x: (index % 4) * 250,
-          y: Math.floor(index / 4) * 150,
-        },
-        data: {
-          label: `${node.node_type}: ${node.name}`,
-        },
-      }));
+        const graphNodes: Node[] = graph.nodes.map((node, index) => ({
+          id: String(node.id),
+          position: {
+            x: (index % 4) * 250,
+            y: Math.floor(index / 4) * 150,
+          },
+          data: {
+            label: `${node.node_type}: ${node.name}`,
+          },
+        }));
 
-      const graphEdges: Edge[] = graph.relationships.map((relationship) => ({
-        id: String(relationship.id),
-        source: String(relationship.source_node_id),
-        target: String(relationship.target_node_id),
-        label: relationship.relationship_type,
-      }));
+        const graphEdges: Edge[] = graph.relationships.map((relationship) => ({
+          id: String(relationship.id),
+          source: String(relationship.source_node_id),
+          target: String(relationship.target_node_id),
+          label: relationship.relationship_type,
+        }));
 
-      setNodes(graphNodes);
-      setEdges(graphEdges);
+        setNodes(graphNodes);
+        setEdges(graphEdges);
+      } catch (error) {
+        console.error(error);
+        setError("Failed to load repository graph.");
+      } finally {
+        setLoading(false);
+      }
     }
 
     loadGraph();
   }, [repositoryId]);
+
+  if (loading) {
+    return <div>Loading codebase...</div>;
+  }
+
+  if (error) {
+    return <div>{error}</div>;
+  }
 
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
