@@ -5,6 +5,12 @@ export async function createRepository(
   name: string,
   url: string,
 ) {
+  const existingRepository = await getRepositoryByGithub(owner, name);
+
+  if (existingRepository) {
+    return existingRepository;
+  }
+
   // insert to database
   const result = await pool.query(
     "INSERT INTO repositories (github_owner, github_name, github_url) VALUES ($1, $2, $3) RETURNING *",
