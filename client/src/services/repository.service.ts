@@ -6,5 +6,5 @@ export async function getRepositoryGraph(
 ): Promise<RepositoryGraph> {
   const response = await api.get(`/repositories/${repositoryId}/graph`);
 
-  return response.data;
+  return response.data.data;
 }
