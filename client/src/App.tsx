@@ -1,25 +1,7 @@
-import { useEffect, useState } from "react";
-import { checkHealth } from "./api/health";
+import Dashboard from "./pages/Dashboard";
 
 function App() {
-  const [status, setStatus] = useState("Checking backend...");
-
-  useEffect(() => {
-    checkHealth()
-      .then((data) => {
-        setStatus(data.status);
-      })
-      .catch(() => {
-        setStatus("Backend connection failed");
-      });
-  }, []);
-
-  return (
-    <div>
-      <h1>CodeMap AI</h1>
-      <p>Backend status: {status}</p>
-    </div>
-  );
+  return <Dashboard repositoryId={1} />;
 }
 
 export default App;
