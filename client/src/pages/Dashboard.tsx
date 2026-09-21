@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import type { Node, Edge } from "@xyflow/react";
+import type { Edge, Node } from "@xyflow/react";
 
 import CodeGraph from "../components/graph/CodeGraph";
 import { getRepositoryGraph } from "../services/repository.service";
+import { getLayoutedElements } from "../components/graph/graph-layout";
 
 interface DashboardProps {
   repositoryId: number;
@@ -17,28 +18,50 @@ export default function Dashboard({ repositoryId }: DashboardProps) {
   useEffect(() => {
     async function loadGraph() {
       try {
+        setLoading(true);
+        setError(null);
+
         const graph = await getRepositoryGraph(repositoryId);
 
-        const graphNodes: Node[] = graph.nodes.map((node, index) => ({
+        const graphNodes: Node[] = graph.nodes.map((node) => ({
           id: String(node.id),
+
+          type: "graphNode",
+
           position: {
-            x: (index % 4) * 250,
-            y: Math.floor(index / 4) * 150,
+            x: 0,
+            y: 0,
           },
+
           data: {
-            label: `${node.node_type}: ${node.name}`,
+            name: node.name,
+            nodeType: node.node_type,
+            filePath: node.file_path,
           },
         }));
 
-        const graphEdges: Edge[] = graph.relationships.map((relationship) => ({
-          id: String(relationship.id),
-          source: String(relationship.source_node_id),
-          target: String(relationship.target_node_id),
-          label: relationship.relationship_type,
-        }));
+        const graphEdges: Edge[] = graph.relationships.map((relationship) => {
+          const relationshipType = relationship.relationship_type;
 
-        setNodes(graphNodes);
-        setEdges(graphEdges);
+          return {
+            id: String(relationship.id),
+
+            source: String(relationship.source_node_id),
+
+            target: String(relationship.target_node_id),
+
+            label: relationshipType,
+
+            type: "smoothstep",
+
+            animated: relationshipType === "imports",
+          };
+        });
+
+        const layouted = getLayoutedElements(graphNodes, graphEdges);
+
+        setNodes(layouted.nodes);
+        setEdges(layouted.edges);
       } catch (error) {
         console.error(error);
         setError("Failed to load repository graph.");
@@ -59,7 +82,12 @@ export default function Dashboard({ repositoryId }: DashboardProps) {
   }
 
   return (
-    <div style={{ width: "100vw", height: "100vh" }}>
+    <div
+      style={{
+        width: "100vw",
+        height: "100vh",
+      }}
+    >
       <CodeGraph nodes={nodes} edges={edges} />
     </div>
   );
