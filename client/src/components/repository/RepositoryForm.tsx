@@ -1,7 +1,7 @@
 import { FormEvent, useState } from "react";
 
 interface RepositoryFormProps {
-  onSubmit: (owner: string, name: string) => Promise<void>;
+  onSubmit: (owner: string, name: string, url: string) => Promise<void>;
   loading: boolean;
 }
 
@@ -41,7 +41,7 @@ export default function RepositoryForm({
       return;
     }
 
-    await onSubmit(repository.owner, repository.name);
+    await onSubmit(repository.owner, repository.name, url);
   }
 
   return (
