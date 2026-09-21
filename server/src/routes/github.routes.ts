@@ -9,7 +9,7 @@ const githubRouter = Router();
 
 githubRouter.get("/:owner/:name/tree", getGitHubFileTree);
 githubRouter.get("/test", testGithubRepository);
-githubRouter.get(
+githubRouter.post(
   "/repositories/:owner/:name/analyze",
   analyzeGithubRepositoryController,
 );
