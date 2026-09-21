@@ -21,10 +21,7 @@ export async function createRepository(
 }
 
 export async function analyzeRepository(owner: string, name: string) {
-  const response = await api.post("/repositories/:owner/:name/analyze", {
-    owner,
-    name,
-  });
+  const response = await api.post(`/repositories/${owner}/${name}/analyze`);
 
   return response.data.data;
 }
