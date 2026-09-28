@@ -4,14 +4,18 @@ import type { Edge, Node } from "@xyflow/react";
 import CodeGraph from "../components/graph/CodeGraph";
 import { getRepositoryGraph } from "../services/repository.service";
 import { getLayoutedElements } from "../components/graph/graph-layout";
+import NodeDetailsPanel from "../components/graph/NodeDetailsPanel";
+import type { GraphNode, RepositoryGraph } from "../types/graph";
 
 interface DashboardProps {
   repositoryId: number;
 }
 
 export default function Dashboard({ repositoryId }: DashboardProps) {
+  const [graph, setGraph] = useState<RepositoryGraph | null>(null);
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
+  const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,6 +26,7 @@ export default function Dashboard({ repositoryId }: DashboardProps) {
         setError(null);
 
         const graph = await getRepositoryGraph(repositoryId);
+        setGraph(graph);
 
         const graphNodes: Node[] = graph.nodes.map((node) => ({
           id: String(node.id),
@@ -73,6 +78,9 @@ export default function Dashboard({ repositoryId }: DashboardProps) {
     loadGraph();
   }, [repositoryId]);
 
+  const selectedNode: GraphNode | null =
+    graph?.nodes.find((node) => node.id === selectedNodeId) ?? null;
+
   if (loading) {
     return <div>Loading codebase...</div>;
   }
@@ -86,9 +94,23 @@ export default function Dashboard({ repositoryId }: DashboardProps) {
       style={{
         width: "100vw",
         height: "100vh",
+        display: "flex",
       }}
     >
-      <CodeGraph nodes={nodes} edges={edges} />
+      <div
+        style={{
+          flex: 1,
+          minWidth: 0,
+        }}
+      >
+        <CodeGraph
+          nodes={nodes}
+          edges={edges}
+          onNodeClick={setSelectedNodeId}
+        />
+      </div>
+
+      <NodeDetailsPanel node={selectedNode} graph={graph} />
     </div>
   );
 }
