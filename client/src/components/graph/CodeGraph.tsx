@@ -10,11 +10,12 @@ import {
 import "@xyflow/react/dist/style.css";
 
 import GraphNode from "../GraphNode";
+import GraphLegend from "./GraphLegend";
 
 interface CodeGraphProps {
   nodes: Node[];
   edges: Edge[];
-  onNodeClick: (nodeId: number) => void;
+  onNodeClick: (nodeId: number | null) => void;
 }
 
 const nodeTypes = {
@@ -36,11 +37,16 @@ export default function CodeGraph({
         onNodeClick={(_, node) => {
           onNodeClick(Number(node.id));
         }}
+        onPaneClick={() => {
+          onNodeClick(null);
+        }}
       >
         <Background />
         <Controls />
         <MiniMap />
       </ReactFlow>
+
+      <GraphLegend />
     </div>
   );
 }

@@ -2,9 +2,12 @@ import { useEffect, useState } from "react";
 import type { Edge, Node } from "@xyflow/react";
 
 import CodeGraph from "../components/graph/CodeGraph";
-import { getRepositoryGraph } from "../services/repository.service";
-import { getLayoutedElements } from "../components/graph/graph-layout";
 import NodeDetailsPanel from "../components/graph/NodeDetailsPanel";
+
+import { getRepositoryGraph } from "../services/repository.service";
+
+import { getLayoutedElements } from "../components/graph/graph-layout";
+
 import type { GraphNode, RepositoryGraph } from "../types/graph";
 
 interface DashboardProps {
@@ -13,10 +16,15 @@ interface DashboardProps {
 
 export default function Dashboard({ repositoryId }: DashboardProps) {
   const [graph, setGraph] = useState<RepositoryGraph | null>(null);
-  const [nodes, setNodes] = useState<Node[]>([]);
-  const [edges, setEdges] = useState<Edge[]>([]);
+
+  const [baseNodes, setBaseNodes] = useState<Node[]>([]);
+
+  const [baseEdges, setBaseEdges] = useState<Edge[]>([]);
+
   const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
+
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -25,10 +33,11 @@ export default function Dashboard({ repositoryId }: DashboardProps) {
         setLoading(true);
         setError(null);
 
-        const graph = await getRepositoryGraph(repositoryId);
-        setGraph(graph);
+        const repositoryGraph = await getRepositoryGraph(repositoryId);
 
-        const graphNodes: Node[] = graph.nodes.map((node) => ({
+        setGraph(repositoryGraph);
+
+        const graphNodes: Node[] = repositoryGraph.nodes.map((node) => ({
           id: String(node.id),
 
           type: "graphNode",
@@ -45,30 +54,92 @@ export default function Dashboard({ repositoryId }: DashboardProps) {
           },
         }));
 
-        const graphEdges: Edge[] = graph.relationships.map((relationship) => {
-          const relationshipType = relationship.relationship_type;
+        const graphEdges: Edge[] = repositoryGraph.relationships.map(
+          (relationship) => {
+            const relationshipType = relationship.relationship_type;
 
-          return {
-            id: String(relationship.id),
+            if (relationshipType === "imports") {
+              return {
+                id: String(relationship.id),
 
-            source: String(relationship.source_node_id),
+                source: String(relationship.source_node_id),
 
-            target: String(relationship.target_node_id),
+                target: String(relationship.target_node_id),
 
-            label: relationshipType,
+                label: "imports",
 
-            type: "smoothstep",
+                type: "smoothstep",
 
-            animated: relationshipType === "imports",
-          };
-        });
+                animated: true,
+
+                style: {
+                  stroke: "#2563eb",
+                  strokeWidth: 2,
+                },
+
+                labelStyle: {
+                  fill: "#2563eb",
+                  fontWeight: 600,
+                },
+              };
+            }
+
+            if (relationshipType === "exports") {
+              return {
+                id: String(relationship.id),
+
+                source: String(relationship.source_node_id),
+
+                target: String(relationship.target_node_id),
+
+                label: "exports",
+
+                type: "smoothstep",
+
+                style: {
+                  stroke: "#16a34a",
+                  strokeWidth: 2,
+                },
+
+                labelStyle: {
+                  fill: "#16a34a",
+                  fontWeight: 600,
+                },
+              };
+            }
+
+            return {
+              id: String(relationship.id),
+
+              source: String(relationship.source_node_id),
+
+              target: String(relationship.target_node_id),
+
+              label: "contains",
+
+              type: "smoothstep",
+
+              style: {
+                stroke: "#9ca3af",
+                strokeWidth: 1.5,
+                strokeDasharray: "5 5",
+              },
+
+              labelStyle: {
+                fill: "#6b7280",
+                fontWeight: 600,
+              },
+            };
+          },
+        );
 
         const layouted = getLayoutedElements(graphNodes, graphEdges);
 
-        setNodes(layouted.nodes);
-        setEdges(layouted.edges);
+        setBaseNodes(layouted.nodes);
+        setBaseEdges(layouted.edges);
       } catch (error) {
         console.error(error);
+
         setError("Failed to load repository graph.");
       } finally {
         setLoading(false);
@@ -80,6 +151,59 @@ export default function Dashboard({ repositoryId }: DashboardProps) {
 
   const selectedNode: GraphNode | null =
     graph?.nodes.find((node) => node.id === selectedNodeId) ?? null;
+
+  const connectedNodeIds = new Set<number>();
+
+  if (selectedNodeId !== null && graph) {
+    graph.relationships.forEach((relationship) => {
+      if (relationship.source_node_id === selectedNodeId) {
+        connectedNodeIds.add(relationship.target_node_id);
+      }
+
+      if (relationship.target_node_id === selectedNodeId) {
+        connectedNodeIds.add(relationship.source_node_id);
+      }
+    });
+  }
+
+  const nodes = baseNodes.map((node) => {
+    const nodeId = Number(node.id);
+
+    const isSelected = nodeId === selectedNodeId;
+
+    const isConnected = connectedNodeIds.has(nodeId);
+
+    const hasSelection = selectedNodeId !== null;
+
+    return {
+      ...node,
+
+      style: {
+        opacity: hasSelection && !isSelected && !isConnected ? 0.25 : 1,
+      },
+    };
+  });
+
+  const edges = baseEdges.map((edge) => {
+    const sourceId = Number(edge.source);
+    const targetId = Number(edge.target);
+
+    const isConnected =
+      selectedNodeId !== null &&
+      (sourceId === selectedNodeId || targetId === selectedNodeId);
+
+    return {
+      ...edge,
+
+      style: {
+        ...edge.style,
+
+        opacity: selectedNodeId !== null ? (isConnected ? 1 : 0.15) : 1,
+
+        strokeWidth: isConnected ? 3 : edge.style?.strokeWidth,
+      },
+    };
+  });
 
   if (loading) {
     return <div>Loading codebase...</div>;
