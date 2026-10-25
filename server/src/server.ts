@@ -7,6 +7,7 @@ import repoRouter from "./routes/repositories.routes";
 import { errorHandler } from "./middleware/errorHandler";
 import githubRouter from "./routes/github.routes";
 import graphRouter from "./routes/graph.routes";
+import fileContentRouter from "./routes/file-content.routes";
 
 const app = express();
 app.use(
@@ -20,6 +21,7 @@ app.use(express.json());
 app.use("/api/repositories", repoRouter);
 app.use("/api/github", githubRouter);
 app.use("/api", graphRouter);
+app.use("/api", fileContentRouter);
 
 // error handler
 app.use(errorHandler);

@@ -27,3 +27,23 @@ export async function analyzeRepository(owner: string, name: string) {
 
   return response.data.data;
 }
+
+// Response type for getting repository file content
+export interface RepositoryFileContent {
+  id: number;
+  path: string;
+  content: string;
+}
+
+export async function getRepositoryFileContent(
+  repositoryId: number,
+  filePath: string,
+): Promise<RepositoryFileContent> {
+  const response = await api.get(`/repositories/${repositoryId}/file-content`, {
+    params: {
+      path: filePath,
+    },
+  });
+
+  return response.data.data;
+}

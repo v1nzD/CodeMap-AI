@@ -5,6 +5,7 @@ export async function saveAnalyzedRepository(
   analysis: {
     files: {
       path: string;
+      content: string;
       imports: string[];
       functions: string[];
       exports: string[];
@@ -36,11 +37,11 @@ export async function saveAnalyzedRepository(
       // save file
       const fileResult = await client.query(
         `
-      INSERT INTO files (repository_id, path)
-      VALUES ($1, $2)
+      INSERT INTO files (repository_id, path, content)
+      VALUES ($1, $2, $3)
       RETURNING id
       `,
-        [repositoryId, file.path],
+        [repositoryId, file.path, file.content],
       );
 
       const fileId = fileResult.rows[0].id;

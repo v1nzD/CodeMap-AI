@@ -1,13 +1,21 @@
 import type { GraphNode, RepositoryGraph } from "../../types/graph";
 
+import type { RepositoryFileContent } from "../../services/repository.service";
+
 interface NodeDetailsPanelProps {
   node: GraphNode | null;
   graph: RepositoryGraph | null;
+  fileContent: RepositoryFileContent | null;
+  sourceLoading: boolean;
+  sourceError: string | null;
 }
 
 export default function NodeDetailsPanel({
   node,
   graph,
+  fileContent,
+  sourceLoading,
+  sourceError,
 }: NodeDetailsPanelProps) {
   if (!node || !graph) {
     return (
@@ -131,6 +139,50 @@ export default function NodeDetailsPanel({
             );
           })}
         </ul>
+      )}
+
+      <hr
+        style={{
+          margin: "24px 0",
+          border: 0,
+          borderTop: "1px solid #e5e7eb",
+        }}
+      />
+
+      <h3>Source Code</h3>
+
+      {sourceLoading ? (
+        <p style={{ color: "#6b7280" }}>Loading source code...</p>
+      ) : sourceError ? (
+        <p style={{ color: "#dc2626" }}>{sourceError}</p>
+      ) : fileContent ? (
+        <div
+          style={{
+            maxHeight: 360,
+            overflow: "auto",
+            borderRadius: 8,
+            background: "#111827",
+            padding: 12,
+          }}
+        >
+          <pre
+            style={{
+              margin: 0,
+              color: "#e5e7eb",
+              fontSize: 12,
+              lineHeight: 1.6,
+              whiteSpace: "pre",
+              width: "max-content",
+              minWidth: "100%",
+            }}
+          >
+            <code>{fileContent.content}</code>
+          </pre>
+        </div>
+      ) : (
+        <p style={{ color: "#6b7280" }}>
+          Select a file or function to view its source.
+        </p>
       )}
     </aside>
   );

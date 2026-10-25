@@ -10,6 +10,11 @@ import { getLayoutedElements } from "../components/graph/graph-layout";
 
 import type { GraphNode, RepositoryGraph } from "../types/graph";
 
+import {
+  getRepositoryFileContent,
+  type RepositoryFileContent,
+} from "../services/repository.service";
+
 interface DashboardProps {
   repositoryId: number;
 }
@@ -26,6 +31,12 @@ export default function Dashboard({ repositoryId }: DashboardProps) {
   const [loading, setLoading] = useState(true);
 
   const [error, setError] = useState<string | null>(null);
+
+  const [fileContent, setFileContent] = useState<RepositoryFileContent | null>(
+    null,
+  );
+  const [sourceLoading, setSourceLoading] = useState(false);
+  const [sourceError, setSourceError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadGraph() {
@@ -149,6 +160,7 @@ export default function Dashboard({ repositoryId }: DashboardProps) {
     loadGraph();
   }, [repositoryId]);
 
+  // Highlight the selected node's relationships (connected nodes)
   const selectedNode: GraphNode | null =
     graph?.nodes.find((node) => node.id === selectedNodeId) ?? null;
 
@@ -205,6 +217,51 @@ export default function Dashboard({ repositoryId }: DashboardProps) {
     };
   });
 
+  // the effect runs when the selected node changes
+  useEffect(() => {
+    if (selectedNodeId === null || !selectedNode) {
+      setFileContent(null);
+      setSourceError(null);
+      setSourceLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadSource() {
+      try {
+        setSourceLoading(true);
+        setSourceError(null);
+        setFileContent(null);
+
+        const result = await getRepositoryFileContent(
+          repositoryId,
+          selectedNode.file_path,
+        );
+
+        if (!cancelled) {
+          setFileContent(result);
+        }
+      } catch (error) {
+        console.error(error);
+
+        if (!cancelled) {
+          setSourceError("Failed to load source code.");
+        }
+      } finally {
+        if (!cancelled) {
+          setSourceLoading(false);
+        }
+      }
+    }
+
+    loadSource();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [repositoryId, selectedNodeId, selectedNode?.file_path]);
+
   if (loading) {
     return <div>Loading codebase...</div>;
   }
@@ -234,7 +291,13 @@ export default function Dashboard({ repositoryId }: DashboardProps) {
         />
       </div>
 
-      <NodeDetailsPanel node={selectedNode} graph={graph} />
+      <NodeDetailsPanel
+        node={selectedNode}
+        graph={graph}
+        fileContent={fileContent}
+        sourceLoading={sourceLoading}
+        sourceError={sourceError}
+      />
     </div>
   );
 }

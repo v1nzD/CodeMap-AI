@@ -120,6 +120,7 @@ export async function analyzeRepository(
 
     return {
       ...analysis,
+      content: file.content,
       dependencies,
     };
   });
